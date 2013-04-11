@@ -3,12 +3,14 @@
 \title{Bayesian Estimation of Tumor Purity and Clonality}
 \description{PurBayes is an iterative Bayesian algorithm which simultaneously estimates tumor purity and clonality using finite mixture models, using the MCMC software JAGS to obtain posterior samples for inference.  Using a penalized deviance criterion, PurBayes iteratively fits models increasing in variant population count until an optimal fit is achieved.}
 \usage{
-PurBayes(N, Y, pop.max = 5, prior = NULL, burn.in = 50000, n.post = 10000,
+PurBayes(N, Y, M = NULL, Z = NULL, pop.max = 5, prior = NULL, burn.in = 50000, n.post = 10000,
  fn.jags = "PB.jags", plot = FALSE)
 }
 \arguments{
   \item{N}{numeric vector of total reads for each somatic mutation from the tumor tissue NGS data}
   \item{Y}{numeric vector of mutant allele supporting read counts for each somatic mutation from the tumor tissue NGS data}
+  \item{M}{optional numeric vector of total reads for germline heterogyous variants.  PurBayes uses these to estimate non-reference allele mapping rate to account for mapping bias}
+  \item{Z}{optional numeric vector of alternate allele reads for germline heterozygous variants, corresponding to \code{M}}
   \item{pop.max}{Maximum number of variant populations allowed in the iterative modeling procedure.  Defaults to 5.}
   \item{prior}{Optional prior distribution for \eqn{\lambda_J} under the homogenenous tumor model.  If \code{NULL}, defaults to Uniform(0,1).  WARNING: This must be provided as a character string written within the JAGS modeling language.}
   \item{burn.in}{Number of MCMC draws that are excluded as a burn-in.  Defaults to 50000.}
@@ -20,8 +22,7 @@ PurBayes(N, Y, pop.max = 5, prior = NULL, burn.in = 50000, n.post = 10000,
 
 The probability that a given variant corresponds to the \eqn{j^{th}} population is given by \eqn{\kappa_j}, and \eqn{\bm{\kappa}=(\kappa_1,\ldots,\kappa_J)} follows a dirichlet prior such that \eqn{\pi(\bm{\kappa})\sim Dirichlet(\alpha_1,\,\ldots,\alpha_J)} for a given variant population quantity \eqn{J}.  PurBayes applies a diffuse prior on \eqn{\bm{\kappa}}, such that \eqn{\alpha_1=\ldots=\alpha_J=1}.  While the user may specify a particular prior for \eqn{\lambda} under a homogeneous tumor, PurBayes defaults to \eqn{\pi(\lambda_j) \sim Uniform(0,1)} for all \emph{j}, and uses a sort function to avoid label switching.
 
-The optimality criterion used for model selection with regard to size of \eqn{J} is based upon the penalized expected deviance (Plummer, 2008).  It uses the \code{diffdic} function to determine the difference in penalized deviance between the previously fit model and the current one.  If the sum of these differences is negative, or the magnitude is within its sample standard error, then the previous model is accepted as optimal and the algorithm terminates.
-
+The optimality criterion used for model selection with regard to size of \eqn{J} is based upon the penalized expected deviance (Plummer, 2008).
 }
 \value{
  \item{n.pop}{Numeric scalar corresponding to number of variant populations detected by PurBayes}

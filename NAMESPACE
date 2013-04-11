@@ -1,1 +1,7 @@
-exportPattern("^[[:alpha:]]+")
+#Export functions
+export(write.PB,
+	PurBayes,
+	PB.plot)
+
+#Import functions
+import(rjags)

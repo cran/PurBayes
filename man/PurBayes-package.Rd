@@ -11,8 +11,8 @@ NOTE: Requires JAGS to be installed.}
 \tabular{ll}{
 Package: \tab PurBayes\cr
 Type: \tab Package\cr
-Version: \tab 1.0\cr
-Date: \tab 2013-02-12\cr
+Version: \tab 1.2\cr
+Date: \tab 2013-04-12\cr
 License: \tab GPL-2\cr
 }
 }

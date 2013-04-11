@@ -1,7 +1,7 @@
-32c38c3bccde22dd8d52f92414f2c12c *DESCRIPTION
-df390c53434517b304ac5db487184641 *NAMESPACE
-ccee7df63f74b5252b59dc9c3325d331 *R/PurBayes.R
+ceaf8f024cae7bee4ae97e79d1c41719 *DESCRIPTION
+85ad81c450ce7203ff6933c4c0d9581d *NAMESPACE
+81bd990ca527f09aeb8a5253ea01406d *R/PurBayes.R
 18872f45bdb06fc9adf677a5af8c2b75 *man/PB.plot.Rd
-eab11f180df01128add20dc4f40beecb *man/PurBayes-package.Rd
-08a894453c511e43778d6565d6eb5426 *man/PurBayes.Rd
-ad829fb7418c4246efa6e62740455509 *man/write.PB.Rd
+e30a2fe8762646383008babe6f9e1d53 *man/PurBayes-package.Rd
+8db02c1f2fdd5a5babb8a224bab0b67d *man/PurBayes.Rd
+b4bbbd1d5d4e456fd2ff00f4de4457da *man/write.PB.Rd
