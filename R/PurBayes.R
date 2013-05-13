@@ -33,27 +33,40 @@ write.PB<-function(fn.jags,prior=NULL,het=FALSE,germ=FALSE){
   close(fileconn)
   }
   
-PB.plot<-function(N,Y,out.PB){
-  plot(N,Y,cex=0.75,pch=16,xlab="Total Reads",ylab="Mutant Allele Reads")
-  n.pop<-out.PB$n.pop
-  PB.post<-as.matrix(out.PB$PB.post)
-  N.max<-max(N)
+plot.PurBayes<-function(x,...){
+  plot(x$N,x$Y,cex=0.75,pch=16,xlab="Total Reads",ylab="Mutant Allele Reads",...)
+  n.pop<-x$n.pop
+  PB.post<-as.matrix(x$PB.post)
+  N.max<-max(x$N)
   if(n.pop==1){
-    val.j<-quantile(as.matrix(PB.post),c(0.025,0.5,0.975))
+    which.pur<-which(colnames(PB.post)=="pur")
+    val.j<-quantile(PB.post[,which.pur],c(0.025,0.5,0.975))
     lines(c(0,N.max),c(0,N.max*0.5*val.j[2]))
     lines(c(0,N.max),c(0,N.max*0.5*val.j[1]),lty=2)
     lines(c(0,N.max),c(0,N.max*0.5*val.j[3]),lty=2)
     }else{
-  for(i in 1:n.pop){
-    pop.i<-ncol(PB.post)-1-n.pop+i
-    val.j<-quantile(PB.post[,pop.i],c(0.025,0.5,0.975))
-    lines(c(0,N.max),c(0,N.max*0.5*val.j[2]))
-    lines(c(0,N.max),c(0,N.max*0.5*val.j[1]),lty=2)
-    lines(c(0,N.max),c(0,N.max*0.5*val.j[3]),lty=2)
+    for(i in 1:n.pop){
+      which.lambda.i<-which(colnames(PB.post)==paste("lambda.srt[",i,"]",sep=""))
+      val.j<-quantile(PB.post[,which.lambda.i],c(0.025,0.5,0.975))
+      lines(c(0,N.max),c(0,N.max*0.5*val.j[2]))
+      lines(c(0,N.max),c(0,N.max*0.5*val.j[1]),lty=2)
+      lines(c(0,N.max),c(0,N.max*0.5*val.j[3]),lty=2)
+      }
     }
   }
-  }
 
+dic.run<-function(pb.model){
+  #First pass
+  dic.popt<-dic.samples(pb.model,1000,type="popt")
+  if(is.na(sum(dic.popt$penalty))==TRUE){
+    print("Warning: Observation(s) with NaN popt values. Using 2*pD approximation")
+    dic.pD<-dic.samples(pb.model,1000,type="pD")
+    nan.list<-which(is.na(dic.popt$penalty))
+    dic.popt$penalty[nan.list]<-dic.pD$penalty[nan.list]*2
+    }
+  return(dic.popt)
+  }
+  
 PurBayes<-function(N,Y,M=NULL,Z=NULL,pop.max=5,prior=NULL,burn.in=50000,n.post=10000,fn.jags="PB.jags",plot=FALSE){
   n.pop<-1
   germ.dat<-ifelse(is.null(M)==F&&is.null(Z)==F,TRUE,FALSE)
@@ -64,7 +77,9 @@ PurBayes<-function(N,Y,M=NULL,Z=NULL,pop.max=5,prior=NULL,burn.in=50000,n.post=1
   
   pb.m.old<-jags.model(file=fn.jags,pb.dat.old,n.chains=2,n.adapt=1000)
   update(pb.m.old,burn.in)
-  dic.old<-dic.samples(pb.m.old,1000,type="popt")
+  
+  dic.old<-dic.run(pb.m.old)
+  
   pb.list<-list()
   dic.list<-list()
   pb.list[[1]]<-pb.m.old
@@ -72,19 +87,19 @@ PurBayes<-function(N,Y,M=NULL,Z=NULL,pop.max=5,prior=NULL,burn.in=50000,n.post=1
   
   pop.max.break<-0
   repeat{
-    n.pop<-n.pop+1
-    if(n.pop>pop.max){
+    if(n.pop==pop.max){
       print("Warning: PurBayes has reached the defined pop.max, consider increasing this value")
       pop.max.break<-1
       break
       }
+    n.pop<-n.pop+1
     write.PB(fn.jags,prior,het=TRUE,germ=germ.dat)
     if(germ.dat==TRUE){
       pb.dat<-list("N.snv"=length(N),"n.tot"=N,"n.alt"=Y,"M"=sum(M),"Z"=sum(Z),"n.pop"=n.pop,"alpha"=rep(1,n.pop))}else{
       pb.dat<-list("N.snv"=length(N),"n.tot"=N,"n.alt"=Y,"n.pop"=n.pop,"alpha"=rep(1,n.pop))}
     pb.m<-jags.model(file=fn.jags,pb.dat,n.chains=2,n.adapt=1000)
     update(pb.m,burn.in)
-    dic.new<-dic.samples(pb.m,1000,type="popt")
+    dic.new<-dic.run(pb.m)
     pb.list[[n.pop]]<-pb.m
     dic.list[[n.pop]]<-dic.new
     dic.check<-diffdic(dic.old,dic.new)
@@ -96,36 +111,65 @@ PurBayes<-function(N,Y,M=NULL,Z=NULL,pop.max=5,prior=NULL,burn.in=50000,n.post=1
     dic.old<-dic.new
     }
   
-  #Identify optimal model
-  if(pop.max.break==1){
-    n.pop.fin<-pop.max}else{
-    
-    model.check<-matrix(NA,nrow=n.pop,ncol=4)
-    dic.sd<-sqrt(length(dic.check))*sd(dic.check)
-    model.check[n.pop,]<-c(n.pop,sum(dic.new$deviance)+sum(dic.new$penalty),dic.diff,dic.sd)
-    model.check[n.pop-1,]<-c(n.pop-1,sum(dic.old$deviance)+sum(dic.old$penalty),0,0)
-    if(nrow(model.check)>2){
-      for(i in 1:(n.pop-2)){
-        dic.i<-dic.list[[i]]
-        dic.check.i<-diffdic(dic.i,dic.old)
-        dic.diff.i<-sum(dic.check.i)
-        dic.sd.i<-sqrt(length(dic.check.i))*sd(dic.check.i)
-        model.check[i,]<-c(i,sum(dic.i$deviance)+sum(dic.i$penalty),dic.diff.i,dic.sd.i)
-        }
-      n.pop.fin<-min(which(model.check[,3]<=model.check[,4]))
-      }else{
-      n.pop.fin<-1
-      }
+  which.ref<-ifelse(pop.max.break==0,n.pop-1,n.pop)
+  dic.ref<-dic.list[[which.ref]]
+  
+  #Identify optimal model  
+  model.check<-matrix(NA,nrow=n.pop,ncol=4)
+  model.check[which.ref,]<-c(which.ref,sum(dic.ref$deviance)+sum(dic.ref$penalty),0,0)
+  for(i in c(1:n.pop)[-which.ref]){
+    dic.i<-dic.list[[i]]  
+    dic.check.i<-diffdic(dic.i,dic.ref)
+    dic.diff.i<-sum(dic.check.i)
+    dic.sd.i<-sqrt(length(dic.check.i))*sd(dic.check.i)
+    model.check[i,]<-c(i,sum(dic.i$deviance)+sum(dic.i$penalty),dic.diff.i,dic.sd.i)
     }
+  n.pop.fin<-min(which(model.check[1:(which.ref-1),3]<=model.check[1:(which.ref-1),4]),which.ref)
+     
+  colnames(model.check)<-c("N.pop","PED","Delta","SD(Delta)")
   print(paste("PurBayes detected ",n.pop.fin," population(s) of variants",sep=""))
   pb.m.final<-pb.list[[n.pop.fin]]
   if(n.pop.fin==1){
-    pb.post<-coda.samples(pb.m.final,"pur",n.post)
+    if(germ.dat==FALSE){
+      pb.post<-coda.samples(pb.m.final,"pur",n.post)}else{
+      pb.post<-coda.samples(pb.m.final,c("pur","q"),n.post)}
     }else{
-    pb.post<-coda.samples(pb.m.final,c("pur","kappa","lambda.srt"),n.post)
+    if(germ.dat==FALSE){
+      pb.post<-coda.samples(pb.m.final,c("pur","kappa","lambda.srt"),n.post)}else{
+      pb.post<-coda.samples(pb.m.final,c("pur","kappa","lambda.srt","q"),n.post)}
     }
-  PB.out<-list("n.pop"=n.pop.fin,"PB.post"=pb.post)
+  names(pb.list)<-paste("n_",1:length(pb.list),sep="")
+  out<-list("N"=N,"Y"=Y,"M"=M,"Z"=Z,"n.pop"=n.pop.fin,"dev.mat"=as.data.frame(model.check),"PB.post"=pb.post,"which.ref"=which.ref,"jags.fits"=pb.list)
+  class(out)<-"PurBayes"
   if(plot==TRUE)
-    PB.plot(N,Y,PB.out)
-  return(PB.out)
+    plot.PurBayes(out)
+  return(out)
+  }
+  
+summary.PurBayes<-function(object,...){
+  post.out<-t(apply(as.matrix(object$PB.post),2,function(x) quantile(x,c(0.50,0.025,0.975))))
+  colnames(post.out)<-c("Median","2.5% Quant.","97.5% Quant.")
+  out.dev<-object$dev.mat
+  out.dev$Ref_Model<-rep("",nrow(out.dev))
+  out.dev$Ref_Model[object$which.ref]<-"*"
+  pur.dist<-post.out[which(row.names(post.out)=="pur"),]
+  n.pop<-object$n.pop
+  out<-list("purity"=pur.dist,"post.dist"=post.out,"n.pop"=n.pop,"dev.out"=out.dev)
+  class(out)<-"summary.PurBayes"
+  print(out)
+  invisible(out)
+  }
+  
+print.summary.PurBayes<-function(x,...){
+  cat("Purity Estimate\n")
+  print(x$purity)
+  cat("\n")
+  cat("Number of Populations\n")
+  print(x$n.pop)
+  cat("\n")
+  cat("Model Posterior Distributions\n")
+  print(x$post.dist)
+  cat("\n")
+  cat("Penalized Deviance Results\n")
+  print(x$dev.out,row.names=F)
   }

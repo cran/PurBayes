@@ -1,7 +1,7 @@
-#Export functions
-export(write.PB,
-	PurBayes,
-	PB.plot)
-
-#Import functions
 import(rjags)
+export(PurBayes)
+exportClasses(PurBayes,summary.PurBayes)
+S3method(plot,PurBayes)
+S3method(summary,PurBayes)
+S3method(print,summary.PurBayes)
+
